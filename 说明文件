@@ -1,0 +1,59 @@
+简介
+长风clash是一款主打透明网关功能的 clash 客户端，目的是给家里所有设备都能享用clash带来的便利，如ios、android TV或者不想安装客户端的设备都可以，只需要简单几行命令就可以完成透明网关的搭建～ 可以运行在 arm，x64设备上，如树莓派、虚拟机、docker。下面主要介绍如何在 Docker下使用
+
+ 项目地址
+
+目前透明网关功能只支持在 linux 环境运行
+
+拉取镜像
+Docker 镜像已经发布在 Docker hub使用命令 docker pull changfeng2021/cf-clash:latest 
+
+Host模式
+比较简单的是使用 host模式，也就是与主机共享网络环境，使用命令就可以完成安装
+
+docker run -d --restart always --name cf-clash --net=host --privileged changfeng2021/cf-clash:latest
+--restart always -> 当宿主机重启容器会自动重启
+
+--net=host -> 网络与宿主机共享
+
+--privileged -> 容器有完全的权限
+
+这是第一种方法运行完成后打开浏览器访问：http://宿主机地址:8443 就可以访问 cf-clash
+
+然后把手机等设备的网关与DNS设置成宿主机IP该设置就可以完成科学上网的功能。 
+
+值得注意的是这种模式下宿主机需要设置成 静态IP,否则在路由下设置网关与DNS后会出现问题
+
+Bridge模式
+这种方式使用桥接网卡的方式，安装完成后也不需要设置静态IP
+
+创建 macvlan网卡 docker network create -d macvlan --subnet=192.168.31.0/24 --gateway=192.168.31.1 -o parent=eth0 macnet
+
+注意这里的网段需要和你自己的网段一致，不要照抄，如你的网段是 192.168.1.x 那么 --subnet=192.168.1.0/24
+
+运行创建的网卡运行容器
+
+docker run --name cf-clash -d --network macnet --privileged changfeng2021/cf-clash:latest
+查看 docker 容器的IP，我们需要进入到容器内部查看容器 IP，先查看容器 docker ps ，然后根据容器ID进入容器 docker exec -it c1b4b62b3c0d bash
+
+➜ ~ docker ps
+CONTAINER ID   IMAGE                           COMMAND                 CREATED         STATUS         PORTS     NAMES
+c1b4b62b3c0d   changfeng2021/cf-clash:latest   "java -jar /opt/app/…"   33 minutes ago   Up 33 minutes             cf-clash
+docker exec -it c1b4b62b3c0d bash
+这样我们就进入到容器内部了，再使用 ip addr 可以查看ip地址
+
+root@c1b4b62b3c0d:/# ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+  link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+  inet 127.0.0.1/8 scope host lo
+      valid_lft forever preferred_lft forever
+4: eth0@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default
+  link/ether 02:42:c0:a8:1f:02 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+  inet 192.168.31.2/24 brd 192.168.31.255 scope global eth0
+      valid_lft forever preferred_lft forever
+这里可以看到 ip 是 192.168.31.2
+
+接下来设置好设备的网关与DNS就完成了所有的操作
+
+
+
